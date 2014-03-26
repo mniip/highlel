@@ -1,6 +1,6 @@
 CFLAGS=
 LIBS=
-SOURCES=ELF.cpp Pager.cpp main.cpp
+SOURCES=ELF.cpp Pager.cpp main.cpp Thread.cpp EmulatedThread.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 
 all: main
@@ -17,5 +17,7 @@ clean:
 # Header dependencies
 ELF.cpp: ELF.h
 main.cpp: ELF.h
-ELF.h: Pager.h
+ELF.h: Pager.h EmulatedThread.h
 Pager.cpp: Pager.h
+Thread.cpp: Thread.h Pager.h
+EmulatedThread.cpp: EmulatedThread.h Thread.h

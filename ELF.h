@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "EmulatedThread.h"
 #include "Pager.h"
 
 namespace ELF
@@ -99,6 +100,6 @@ namespace ELF
 	};
 
 	static const uint32_t ValidMagic = 0x464C457F;
-
-	void load(std::string filename);
+	
+	void load(EmulatedThread *thread, std::string filename);
 };

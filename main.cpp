@@ -6,6 +6,7 @@ int main(int argc, const char *argv[])
 {
 	if(argc > 1)
 	{
-		ELF::load(argv[1]);
+		EmulatedThread *t = new EmulatedThread(argv[1]);
+		t->Run();
 	}
 }
