@@ -26,6 +26,7 @@ void EmulatedThread::syscall(Registers &r) // TODO: move away
 				void *buffer = malloc(size);
 				pager->copyFromPages(buffer, r.SI.rx, size);
 				retval = write(1, buffer, size);
+				free(buffer);
 				break;
 			}
 			break;

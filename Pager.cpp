@@ -64,10 +64,10 @@ void Pager::copyFromPages(void *destination, pointer address, size_t size)
 		if(address < i->address + i->size && address + size > i-> address)
 		{
 			pointer start = std::max(address, i->address);
-			ssize_t offt = start - i->address;
-			size_t length = std::min(i->size - offt, size);
-			memcpy(destination + offt, i->realAddress + offt, length);
-			left -= length;
+			size_t length = std::min(address + size, i->address + i->size) - start;
+			size_t offset = start - i->address;
+			size_t realOffset = start - address;
+			memcpy(destination + realOffset, i->realAddress + offset, length);
 			if(!left)
 				break;
 		}
