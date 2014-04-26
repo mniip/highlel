@@ -38,7 +38,7 @@ void ELF::load(EmulatedThread *thread, std::string filename)
 
 	if(size < header->phOffset + header->phNum * header->phEntrySize)
 		throw std::runtime_error("File truncated: could not obtain program headers");
-	const struct ELF::ProgramHeader *ph = (const struct ELF::ProgramHeader *)(map + header->phOffset);
+	const struct ELF::ProgramHeader *ph = (const struct ELF::ProgramHeader *)((uint8_t *)map + header->phOffset);
 	pointer highheap = 0;
 	for(int i = 0; i < header->phNum; i++)
 	{
@@ -47,8 +47,8 @@ void ELF::load(EmulatedThread *thread, std::string filename)
 		if(ph[i].type == ELF::ProgramHeader::Loadable)
 		{
 			highheap = std::max(highheap, ph[i].address + ph[i].memorySize);
-			thread->pager->map(ph[i].address, ph[i].memorySize);
-			thread->pager->copyToPages(ph[i].address, map + ph[i].offset, std::min(ph[i].memorySize, ph[i].size));
+			thread->pager->map(ph[i].address, ph[i].memorySize, PageRead | PageWrite | PageExecute);
+			thread->pager->copyToPages(ph[i].address, (uint8_t *)map + ph[i].offset, std::min(ph[i].memorySize, ph[i].size));
 		}
 		// TODO: handle relocs
 	}
