@@ -266,3 +266,88 @@ uint8_t Pager::fetch8(pointer address, bool execute)
 		}
 	throw SegmentationViolation();
 }
+
+void Pager::store64(pointer address, uint64_t value)
+{
+	// if address is on a page boundary
+	if((address & PageUnmask) + 8 > PageSize)
+	{
+		store32(address, value);
+		store32(address + 4, value >> 32);
+		return;
+	}
+	for(std::list<PageSequence>::const_iterator i = p.begin(), end = p.end(); i != end; i++)
+		if(address >= i->start && address < i->start + PageSize * i->size)
+		{
+			const Page &v = i->pages[address - i->start >> PageBits];
+			if(v.access & PageWrite)
+			{
+				*(uint64_t *)(v.realAddress + (address & PageUnmask)) = value;
+				return;
+			}
+			throw SegmentationViolation();
+		}
+	throw SegmentationViolation();
+}
+
+void Pager::store32(pointer address, uint32_t value)
+{
+	// if address is on a page boundary
+	if((address & PageUnmask) + 4 > PageSize)
+	{
+		store16(address, value);
+		store16(address + 2, value >> 16);
+		return;
+	}
+	for(std::list<PageSequence>::const_iterator i = p.begin(), end = p.end(); i != end; i++)
+		if(address >= i->start && address < i->start + PageSize * i->size)
+		{
+			const Page &v = i->pages[address - i->start >> PageBits];
+			if(v.access & PageWrite)
+			{
+				*(uint32_t *)(v.realAddress + (address & PageUnmask)) = value;
+				return;
+			}
+			throw SegmentationViolation();
+		}
+	throw SegmentationViolation();
+}
+
+void Pager::store16(pointer address, uint16_t value)
+{
+	// if address is on a page boundary
+	if((address & PageUnmask) + 2 > PageSize)
+	{
+		store8(address, value);
+		store8(address + 1, value >> 8);
+		return;
+	}
+	for(std::list<PageSequence>::const_iterator i = p.begin(), end = p.end(); i != end; i++)
+		if(address >= i->start && address < i->start + PageSize * i->size)
+		{
+			const Page &v = i->pages[address - i->start >> PageBits];
+			if(v.access & PageWrite)
+			{
+				*(uint16_t *)(v.realAddress + (address & PageUnmask)) = value;
+				return;
+			}
+			throw SegmentationViolation();
+		}
+	throw SegmentationViolation();
+}
+
+void Pager::store8(pointer address, uint8_t value)
+{
+	for(std::list<PageSequence>::const_iterator i = p.begin(), end = p.end(); i != end; i++)
+		if(address >= i->start && address < i->start + PageSize * i->size)
+		{
+			const Page &v = i->pages[address - i->start >> PageBits];
+			if(v.access & PageWrite)
+			{
+				*(v.realAddress + (address & PageUnmask)) = value;
+				return;
+			}
+			throw SegmentationViolation();
+		}
+	throw SegmentationViolation();
+}
