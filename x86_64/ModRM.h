@@ -38,11 +38,11 @@ inline ModRegRM readModRegRM(Pager *p, pointer &ip, const Registers r, int rex, 
 	if(mod == 3)
 	{
 		a.memory = false;
-		if(rex)
-			if(rex & RexR)
-				a.regoff = (uint8_t *)&r.r[reg] - (uint8_t *)&r;
+		if(rex || type)
+			if(rex & RexB)
+				a.rmoff = offsetof(Registers, r) + sizeof(r.r) / 8 * rm;
 			else
-				a.regoff = (uint8_t *)&r.main[reg] - (uint8_t *)&r;
+				a.rmoff = offsetof(Registers, main) + sizeof(r.main) / 8 * rm;
 		else
 			a.rmoff = reg_8_offsets[rm];
 		return a;
@@ -113,7 +113,7 @@ template <typename T> inline T peekRM(const ModRegRM m, Pager *p, const Register
 	if(m.memory)
 		return p->fetch<T>(m.location);
 	else
-		return *(T *)((uint8_t *)&r + m.regoff);
+		return *(T *)((uint8_t *)&r + m.rmoff);
 }
 
 template <typename T> inline void _pokeRM(const ModRegRM m, Pager *p, Registers &r, T x)
@@ -121,7 +121,7 @@ template <typename T> inline void _pokeRM(const ModRegRM m, Pager *p, Registers 
 	if(m.memory)
 		p->store<T>(m.location, x);
 	else
-		*(T *)((uint8_t *)&r + m.regoff) = x;
+		*(T *)((uint8_t *)&r + m.rmoff) = x;
 }
 
 inline void _pokeRM(const ModRegRM m, Pager *p, Registers &r, uint32_t x)
@@ -129,7 +129,7 @@ inline void _pokeRM(const ModRegRM m, Pager *p, Registers &r, uint32_t x)
 	if(m.memory)
 		p->store<uint64_t>(m.location, x);
 	else
-		*(uint64_t *)((uint8_t *)&r + m.regoff) = x;
+		*(uint64_t *)((uint8_t *)&r + m.rmoff) = x;
 }
 
 template <typename T> inline void pokeRM(const ModRegRM m, Pager *p, Registers &r, T x) { _pokeRM(m, p, r, x); }
