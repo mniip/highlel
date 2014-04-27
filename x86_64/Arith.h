@@ -30,7 +30,6 @@ inline int parity32(uint32_t x)
 
 inline int parity16(uint16_t x)
 {
-	x ^= x >> 16;
 	x ^= x >> 8;
 	x ^= x >> 4;
 	x ^= x >> 2;
@@ -39,7 +38,6 @@ inline int parity16(uint16_t x)
 
 inline int parity8(uint8_t x)
 {
-	x ^= x >> 8;
 	x ^= x >> 4;
 	x ^= x >> 2;
 	return x ^ x >> 1;
@@ -56,7 +54,7 @@ inline void setSZP32(uint32_t x, Registers &r)
 {
 	r.flags.Sign = x < 0;
 	r.flags.Zero = !x;
-	r.flags.Parity = parity64(x);
+	r.flags.Parity = parity32(x);
 }
 
 inline void setSZP16(uint16_t x, Registers &r)
