@@ -8,6 +8,11 @@
 
 typedef uint64_t pointer;
 
+const int PageBits = 12;
+const pointer PageSize = 1 << PageBits;
+const pointer PageUnmask = PageSize - 1;
+const pointer PageMask = ~PageUnmask;
+
 enum PageAccess
 {
 	PageExecute = 1,
@@ -34,6 +39,14 @@ class Pager
 {
 private:
 	std::list<PageSequence> p;
+	void _fetch(pointer address, bool execute, uint64_t &value);
+	void _fetch(pointer address, bool execute, uint32_t &value);
+	void _fetch(pointer address, bool execute, uint16_t &value);
+	void _fetch(pointer address, bool execute, uint8_t &value);
+	void _store(pointer address, uint64_t value);
+	void _store(pointer address, uint32_t value);
+	void _store(pointer address, uint16_t value);
+	void _store(pointer address, uint8_t value);
 public:
 //	void *virtualToReal(pointer address);
 	Pager();
@@ -43,12 +56,6 @@ public:
 	void copyToPages(pointer address, const void *source, size_t size);
 	void copyFromPages(void *destination, pointer address, size_t size);
 	bool ensurePages(pointer address, size_t size, int access);
-	uint64_t fetch64(pointer address, bool execute = false);
-	uint32_t fetch32(pointer address, bool execute = false);
-	uint16_t fetch16(pointer address, bool execute = false);
-	uint8_t fetch8(pointer address, bool execute = false);
-	void store64(pointer address, uint64_t value);
-	void store32(pointer address, uint32_t value);
-	void store16(pointer address, uint16_t value);
-	void store8(pointer address, uint8_t value);
+	template <typename T> inline T fetch(pointer address, bool execute = false) { T x; _fetch(address, execute, x); return x; }
+	template <typename T> inline void store(pointer address, T value) { _store(address, value); }
 };
