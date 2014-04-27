@@ -50,7 +50,7 @@ void Pager::map(pointer address, size_t size, int access)
 					for(int q = 0; q < num; q++)
 					{
 						Page v;
-						v.realAddress = (uint8_t *)calloc(1, PageSize);
+						v.realAddress = NULL;
 						v.access = access;
 						i->pages[q + i->size] = v;
 					}
@@ -67,7 +67,7 @@ void Pager::map(pointer address, size_t size, int access)
 			for(int q = 0; q < num; q++)
 			{
 				Page v;
-				v.realAddress = (uint8_t *)calloc(1, PageSize);
+				v.realAddress = NULL;
 				v.access = access;
 				i->pages[q + i->size] = v;
 			}
@@ -92,7 +92,7 @@ void Pager::map(pointer address, size_t size, int access)
 			for(int q = 0; q < num; q++)
 			{
 				Page v;
-				v.realAddress = (uint8_t *)calloc(1, PageSize);
+				v.realAddress = NULL;
 				v.access = access;
 				l[q] = v;
 			}
@@ -108,7 +108,7 @@ void Pager::map(pointer address, size_t size, int access)
 	for(int q = 0; q < num; q++)
 	{
 		Page v;
-		v.realAddress = (uint8_t *)calloc(1, PageSize);
+		v.realAddress = NULL;
 		v.access = access;
 		i.pages[q] = v;
 	}
@@ -118,9 +118,15 @@ void Pager::map(pointer address, size_t size, int access)
 	return;
 }
 
+inline void forceExistence(Page &v)
+{
+	if(!v.realAddress)
+		v.realAddress = (uint8_t *)calloc(PageSize, 1);
+}
+
 void Pager::copyToPages(pointer address, const void *source, size_t size)
 {
-	for(std::list<PageSequence>::const_iterator i = p.begin(), end = p.end(); i != end; i++)
+	for(std::list<PageSequence>::iterator i = p.begin(), end = p.end(); i != end; i++)
 		if(i->start >= address)
 		{
 			// Fix the size for if the piece doesn't fit in the array
@@ -130,24 +136,36 @@ void Pager::copyToPages(pointer address, const void *source, size_t size)
 			if((address & PageMask) == (address + size & PageMask))
 			{
 				//It fits on a single page
-				memcpy(i->pages[address - i->start >> PageBits].realAddress + (address & PageUnmask), source, size);
+				Page &v = i->pages[address - i->start >> PageBits];
+				forceExistence(v);
+				memcpy(v.realAddress + (address & PageUnmask), source, size);
 				return;
 			}
 			// First copy up to a page boundary (if it doesn't start there already)
 			ssize_t offt = 0;
 			if(address & PageUnmask)
 			{
-				memcpy(i->pages[address - i->start >> PageBits].realAddress + (address & PageUnmask), source, PageSize - (address & PageUnmask));
+				Page &v = i->pages[address - i->start >> PageBits];
+				forceExistence(v);
+				memcpy(v.realAddress + (address & PageUnmask), source, PageSize - (address & PageUnmask));
 				offt += PageSize - (address & PageUnmask);
 			}
 			// Then copy whole pages
 			pointer headpage = address - i->start + PageUnmask >> PageBits;
 			pointer tailpage = address - i->start + size - 1 >> PageBits;
 			for(size_t pageidx = headpage; pageidx < tailpage; pageidx++, offt += PageSize)
-				memcpy(i->pages[pageidx].realAddress, (uint8_t *)source + offt, PageSize);
+			{
+				Page &v = i->pages[pageidx];
+				forceExistence(v);
+				memcpy(v.realAddress, (uint8_t *)source + offt, PageSize);
+			}
 			// Then copy the piece after the last page boundary (if any)
 			if(address + size & PageUnmask)
-				memcpy(i->pages[tailpage].realAddress, (uint8_t *)source + offt, size - offt);
+			{
+				Page &v = i->pages[tailpage];
+				forceExistence(v);
+				memcpy(v.realAddress, (uint8_t *)source + offt, size - offt);
+			}
 			return;
 		}
 }
@@ -164,24 +182,44 @@ void Pager::copyFromPages(void *destination, pointer address, size_t size)
 			if((address & PageMask) == (address + size & PageMask))
 			{
 				//It fits on a single page
-				memcpy(destination, i->pages[address - i->start >> PageBits].realAddress + (address & PageUnmask), size);
+				const Page &v = i->pages[address - i->start >> PageBits];
+				if(v.realAddress)
+					memcpy(destination, v.realAddress + (address & PageUnmask), size);
+				else
+					memset(destination, 0, size);
 				return;
 			}
 			// First copy up to a page boundary (if it doesn't start there already)
 			ssize_t offt = 0;
 			if(address & PageUnmask)
 			{
-				memcpy(destination, i->pages[address - i->start >> PageBits].realAddress + (address & PageUnmask), PageSize - (address & PageUnmask));
+				const Page &v = i->pages[address - i->start >> PageBits];
+				if(v.realAddress)
+					memcpy(destination, v.realAddress + (address & PageUnmask), PageSize - (address & PageUnmask));
+				else
+					memset(destination, 0, PageSize - (address & PageUnmask));
 				offt += PageSize - (address & PageUnmask);
 			}
 			// Then copy whole pages
 			pointer headpage = address - i->start + PageUnmask >> PageBits;
 			pointer tailpage = address - i->start + size - 1 >> PageBits;
 			for(size_t pageidx = headpage; pageidx < tailpage; pageidx++, offt += PageSize)
-				memcpy((uint8_t *)destination + offt, i->pages[pageidx].realAddress, PageSize);
+			{
+				const Page &v = i->pages[pageidx];
+				if(v.realAddress)
+					memcpy((uint8_t *)destination + offt, v.realAddress, PageSize);
+				else
+					memset((uint8_t *)destination + offt, 0, PageSize);
+			}
 			// Then copy the piece after the last page boundary (if any)
 			if(address + size & PageUnmask)
-				memcpy((uint8_t *)destination + offt, i->pages[tailpage].realAddress, size - offt);
+			{
+				const Page &v = i->pages[tailpage];
+				if(v.realAddress)
+					memcpy((uint8_t *)destination + offt, v.realAddress, size - offt);
+				else
+					memset((uint8_t *)destination + offt, 0, size - offt);
+			}
 			return;
 		}
 }
@@ -216,7 +254,10 @@ uint64_t Pager::fetch64(pointer address, bool execute)
 		{
 			const Page &v = i->pages[address - i->start >> PageBits];
 			if(v.access & (execute ? PageRead : PageExecute))
-				return *(uint64_t *)(v.realAddress + (address & PageUnmask));
+				if(v.realAddress)
+					return *(uint64_t *)(v.realAddress + (address & PageUnmask));
+				else
+					return 0;
 			throw SegmentationViolation();
 		}
 	throw SegmentationViolation();
@@ -232,7 +273,10 @@ uint32_t Pager::fetch32(pointer address, bool execute)
 		{
 			const Page &v = i->pages[address - i->start >> PageBits];
 			if(v.access & (execute ? PageRead : PageExecute))
-				return *(uint32_t *)(v.realAddress + (address & PageUnmask));
+				if(v.realAddress)
+					return *(uint32_t *)(v.realAddress + (address & PageUnmask));
+				else
+					return 0;
 			throw SegmentationViolation();
 		}
 	throw SegmentationViolation();
@@ -248,7 +292,10 @@ uint16_t Pager::fetch16(pointer address, bool execute)
 		{
 			const Page &v = i->pages[address - i->start >> PageBits];
 			if(v.access & (execute ? PageRead : PageExecute))
-				return *(uint16_t *)(v.realAddress + (address & PageUnmask));
+				if(v.realAddress)
+					return *(uint16_t *)(v.realAddress + (address & PageUnmask));
+				else
+					return 0;
 			throw SegmentationViolation();
 		}
 	throw SegmentationViolation();
@@ -261,7 +308,10 @@ uint8_t Pager::fetch8(pointer address, bool execute)
 		{
 			const Page &v = i->pages[address - i->start >> PageBits];
 			if(v.access & (execute ? PageRead : PageExecute))
-				return *(v.realAddress + (address & PageUnmask));
+				if(v.realAddress)
+					return *(v.realAddress + (address & PageUnmask));
+				else
+					return 0;
 			throw SegmentationViolation();
 		}
 	throw SegmentationViolation();
@@ -276,12 +326,13 @@ void Pager::store64(pointer address, uint64_t value)
 		store32(address + 4, value >> 32);
 		return;
 	}
-	for(std::list<PageSequence>::const_iterator i = p.begin(), end = p.end(); i != end; i++)
+	for(std::list<PageSequence>::iterator i = p.begin(), end = p.end(); i != end; i++)
 		if(address >= i->start && address < i->start + PageSize * i->size)
 		{
-			const Page &v = i->pages[address - i->start >> PageBits];
+			Page &v = i->pages[address - i->start >> PageBits];
 			if(v.access & PageWrite)
 			{
+				forceExistence(v);
 				*(uint64_t *)(v.realAddress + (address & PageUnmask)) = value;
 				return;
 			}
@@ -299,12 +350,13 @@ void Pager::store32(pointer address, uint32_t value)
 		store16(address + 2, value >> 16);
 		return;
 	}
-	for(std::list<PageSequence>::const_iterator i = p.begin(), end = p.end(); i != end; i++)
+	for(std::list<PageSequence>::iterator i = p.begin(), end = p.end(); i != end; i++)
 		if(address >= i->start && address < i->start + PageSize * i->size)
 		{
-			const Page &v = i->pages[address - i->start >> PageBits];
+			Page &v = i->pages[address - i->start >> PageBits];
 			if(v.access & PageWrite)
 			{
+				forceExistence(v);
 				*(uint32_t *)(v.realAddress + (address & PageUnmask)) = value;
 				return;
 			}
@@ -322,12 +374,13 @@ void Pager::store16(pointer address, uint16_t value)
 		store8(address + 1, value >> 8);
 		return;
 	}
-	for(std::list<PageSequence>::const_iterator i = p.begin(), end = p.end(); i != end; i++)
+	for(std::list<PageSequence>::iterator i = p.begin(), end = p.end(); i != end; i++)
 		if(address >= i->start && address < i->start + PageSize * i->size)
 		{
-			const Page &v = i->pages[address - i->start >> PageBits];
+			Page &v = i->pages[address - i->start >> PageBits];
 			if(v.access & PageWrite)
 			{
+				forceExistence(v);
 				*(uint16_t *)(v.realAddress + (address & PageUnmask)) = value;
 				return;
 			}
@@ -338,12 +391,13 @@ void Pager::store16(pointer address, uint16_t value)
 
 void Pager::store8(pointer address, uint8_t value)
 {
-	for(std::list<PageSequence>::const_iterator i = p.begin(), end = p.end(); i != end; i++)
+	for(std::list<PageSequence>::iterator i = p.begin(), end = p.end(); i != end; i++)
 		if(address >= i->start && address < i->start + PageSize * i->size)
 		{
-			const Page &v = i->pages[address - i->start >> PageBits];
+			Page &v = i->pages[address - i->start >> PageBits];
 			if(v.access & PageWrite)
 			{
+				forceExistence(v);
 				*(v.realAddress + (address & PageUnmask)) = value;
 				return;
 			}
