@@ -3,16 +3,15 @@
 #include <string>
 
 #include "Thread.h"
-#include "x86_64.h"
+#include "x86_64/Registers.h"
 
 class EmulatedThread: public Thread
 {
 private:
-	void syscall(Registers &r);
-	pointer advanceModRM(pointer ip);
-	void writeModRM(Registers &r, pointer ip, int rex, uint64_t value);
+	Registers r;
+//	void syscall(Registers &r);
 public:
-	pointer entryPoint;
 	EmulatedThread(std::string filename);
+	void setIP(pointer v){ r.IP.rx = v; }
 	void Run();
 };

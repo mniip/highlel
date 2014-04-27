@@ -52,5 +52,5 @@ void ELF::load(EmulatedThread *thread, std::string filename)
 		}
 		// TODO: handle relocs
 	}
-	thread->entryPoint = header->entry;
+	thread->setIP(header->entry);
 }
